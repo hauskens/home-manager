@@ -30,8 +30,8 @@ in {
     containerEnginePackage = mkPackageOption pkgs "docker" { };
     containerEngineSocket = mkOption {
       type = types.str;
-      default = if cfg.containerEngine == "docker" then "/var/run/docker.sock" else "unix://$XDG_RUNTIME_DIR/podman/podman.sock";
-      example = "/var/run/docker.sock";
+      default = if cfg.containerEngine == "docker" then "unix:///var/run/docker.sock" else "unix://$XDG_RUNTIME_DIR/podman/podman.sock";
+      example = "unix:///var/run/docker.sock";
       description = ''
         Specifies the socket for the container engine, setting the DOCKER_HOST variable only for Lazydocker without affecting session or environment variables.
       '';
