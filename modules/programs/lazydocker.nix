@@ -18,41 +18,20 @@ in {
 
     package = mkPackageOption pkgs "lazydocker" { };
 
-    containerEngine = mkOption {
-      type = types.enum [ "docker" "podman" ];
-      default = "docker";
-      description = ''
-        The container engine to use. If set to `podman`, Lazydocker will use
-        Podman instead of Docker.
-      '';
-      };
-
     containerEnginePackage = mkPackageOption pkgs "docker" { };
-    containerEngineSocket = mkOption {
-      type = types.str;
-      default = if cfg.containerEngine == "docker" then "unix:///var/run/docker.sock" else "unix://$XDG_RUNTIME_DIR/podman/podman.sock";
-      example = "unix:///var/run/docker.sock";
-      description = ''
-        Specifies the socket for the container engine, setting the DOCKER_HOST variable only for Lazydocker without affecting session or environment variables.
-      '';
-    };
 
     settings = mkOption {
       type = yamlFormat.type;
-      default = { commandTemplates.dockerCompose = if cfg.containerEngine == "docker" then cfg.containerEnginePackage + "/bin/docker compose" else "${pkgs.podman-compose}/bin/podman-compose"; };
+      default = { };
       defaultText = literalExpression ''
       {
-        commandTemplates.dockerCompose = "${if cfg.containerEngine == "docker" then cfg.containerEnginePackage + "/bin/docker compose" else "${pkgs.podman-compose}/bin/podman-compose"}"
+        commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose";
       }
       '';
       example = literalExpression ''
         {
-          gui.theme = {
-            lightTheme = true;
-            activeBorderColor = [ "blue" "bold" ];
-            inactiveBorderColor = [ "black" ];
-            selectedLineBgColor = [ "default" ];
-          };
+          gui.theme.activeBorderColor = ["red" "bold"];
+          commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose -f docker-compose.yml";
         }
       '';
       description = ''
@@ -67,21 +46,17 @@ in {
     };
   };
 
-  config = let
-  lazydockerWrapped = pkgs.writeShellScriptBin "lazydocker" ''
-    DOCKER_HOST="${cfg.containerEngineSocket}" ${cfg.package}/bin/lazydocker "$@"
-  '';
-  in mkIf cfg.enable {
-    home.packages = [ lazydockerWrapped ];
+  config = mkIf cfg.enable {
+    home.packages = [ cfg.package ];
 
     home.file."Library/Application Support/jesseduffield/lazydocker/config.yml" =
       mkIf (cfg.settings != { } && (isDarwin && !config.xdg.enable)) {
-        source = yamlFormat.generate "lazydocker-config" cfg.settings;
+        source = yamlFormat.generate "lazydocker-config" (lib.attrsets.recursiveUpdate {commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose";} cfg.settings);
       };
 
     xdg.configFile."lazydocker/config.yml" =
       mkIf (cfg.settings != { } && !(isDarwin && !config.xdg.enable)) {
-        source = yamlFormat.generate "lazydocker-config" cfg.settings;
+        source = yamlFormat.generate "lazydocker-config" (lib.attrsets.recursiveUpdate {commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose";} cfg.settings);
       };
   };
 }
