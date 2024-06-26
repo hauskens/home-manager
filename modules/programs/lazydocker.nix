@@ -14,23 +14,25 @@ in {
   meta.maintainers = [ hm.maintainers.hausken ];
 
   options.programs.lazydocker = {
-    enable = mkEnableOption "lazydocker, a simple terminal UI for git commands";
+    enable = mkEnableOption
+      "lazydocker, a simple terminal UI for both docker and docker-compose";
 
     package = mkPackageOption pkgs "lazydocker" { };
 
-    containerEnginePackage = mkPackageOption pkgs "docker" { };
+    containerEnginePackage =
+      mkPackageOption pkgs "docker" { example = "pkgs.docker_26"; };
 
     settings = mkOption {
       type = yamlFormat.type;
-      default = { };
-      defaultText = literalExpression ''
-      {
-        commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose";
-      }
-      '';
+      default = {
+        commandTemplates.dockerCompose = cfg.containerEnginePackage
+          + "/bin/docker compose";
+      };
       example = literalExpression ''
         {
-          gui.theme.activeBorderColor = ["red" "bold"];
+          gui.theme = {
+            activeBorderColor = ["red" "bold"];
+            inactiveBorderColor = ["blue"];
           commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose -f docker-compose.yml";
         }
       '';
@@ -46,17 +48,24 @@ in {
     };
   };
 
-  config = mkIf cfg.enable {
+  config = let
+    defaultSettings = {
+      commandTemplates.dockerCompose = cfg.containerEnginePackage
+        + "/bin/docker compose";
+    };
+  in mkIf cfg.enable {
     home.packages = [ cfg.package ];
 
     home.file."Library/Application Support/jesseduffield/lazydocker/config.yml" =
       mkIf (cfg.settings != { } && (isDarwin && !config.xdg.enable)) {
-        source = yamlFormat.generate "lazydocker-config" (lib.attrsets.recursiveUpdate {commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose";} cfg.settings);
+        source = yamlFormat.generate "lazydocker-config"
+          (lib.attrsets.recursiveUpdate defaultSettings cfg.settings);
       };
 
     xdg.configFile."lazydocker/config.yml" =
       mkIf (cfg.settings != { } && !(isDarwin && !config.xdg.enable)) {
-        source = yamlFormat.generate "lazydocker-config" (lib.attrsets.recursiveUpdate {commandTemplates.dockerCompose = cfg.containerEnginePackage + "/bin/docker compose";} cfg.settings);
+        source = yamlFormat.generate "lazydocker-config"
+          (lib.attrsets.recursiveUpdate defaultSettings cfg.settings);
       };
   };
 }
